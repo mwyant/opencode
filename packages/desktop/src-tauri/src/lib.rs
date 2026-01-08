@@ -1,8 +1,7 @@
 mod cli;
 mod window_customizer;
-mod pty_console;
 
-use cli::{get_sidecar_path, install_cli, sync_cli};
+use cli::{get_embedded_cli_path, install_cli, sync_cli};
 use futures::FutureExt;
 use std::{
     collections::VecDeque,
@@ -103,6 +102,7 @@ fn get_sidecar_port() -> u32 {
         }) as u32
 }
 
+#[cfg(not(target_os = "windows"))]
 fn get_user_shell() -> String {
     std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string())
 }
@@ -200,16 +200,13 @@ pub fn run() {
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-        })
-        .plugin(tauri_plugin_pty::init())
-        .manage(pty_console::Pties::default())
-
             // Focus existing window when another instance is launched
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_focus();
                 let _ = window.unminimize();
             }
         }))
+        .plugin(tauri_plugin_pty::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -225,11 +222,7 @@ pub fn run() {
             kill_sidecar,
             install_cli,
             ensure_server_started,
-            pty_console::start_opencode_cli,
-            pty_console::write_stdin,
-            pty_console::resize_pty,
-            pty_console::close_pty,
-            pty_console::read_pty_output
+            get_embedded_cli_path
         ])
         .setup(move |app| {
             let app = app.handle().clone();
@@ -246,7 +239,7 @@ pub fn run() {
                 .unwrap_or(LogicalSize::new(1920, 1080));
 
             // Create window immediately with serverReady = false
-            let mut window_builder =
+            let window_builder =
                 WebviewWindow::builder(&app, "main", WebviewUrl::App("/".into()))
                     .title("OpenCode")
                     .inner_size(size.width as f64, size.height as f64)
@@ -262,11 +255,9 @@ pub fn run() {
                     ));
 
             #[cfg(target_os = "macos")]
-            {
-                window_builder = window_builder
-                    .title_bar_style(tauri::TitleBarStyle::Overlay)
-                    .hidden_title(true);
-            }
+            let window_builder = window_builder
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true);
 
             let window = window_builder.build().expect("Failed to create window");
 

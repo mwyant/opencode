@@ -3,6 +3,8 @@ import { Terminal } from "xterm";
 import "xterm/css/xterm.css";
 import { invoke } from "@tauri-apps/api/tauri";
 
+const decoder = new TextDecoder();
+
 function getTerminalGeometry(container: HTMLDivElement): { cols: number; rows: number } {
   const charWidth = 9;
   const charHeight = 18;
@@ -15,9 +17,34 @@ function getTerminalGeometry(container: HTMLDivElement): { cols: number; rows: n
 export default function TerminalPanel(props: { class?: string }): JSX.Element {
   let container: HTMLDivElement | undefined;
   let term: Terminal | undefined;
-  let ptyId: string | undefined;
+  let ptyId: number | undefined;
   let resizeObserver: ResizeObserver | undefined;
   let cancelOutput = false;
+
+  const spawnPty = async (path: string, cols: number, rows: number) => {
+    try {
+      const id = await invoke<number>("plugin:pty|spawn", {
+        file: path,
+        args: [],
+        term_name: null,
+        cols,
+        rows,
+        cwd: null,
+        env: {
+          OPENCODE_CLIENT: "desktop",
+          OPENCODE_EXPERIMENTAL_ICON_DISCOVERY: "true"
+        },
+        encoding: null,
+        handle_flow_control: null,
+        flow_control_pause: null,
+        flow_control_resume: null
+      });
+      return id;
+    } catch (error) {
+      console.error("Failed to spawn PTY session", error);
+      return undefined;
+    }
+  };
 
   const pollPtyOutput = async () => {
     while (!cancelOutput) {
@@ -25,9 +52,9 @@ export default function TerminalPanel(props: { class?: string }): JSX.Element {
         await new Promise((res) => setTimeout(res, 50));
         continue;
       }
-      const chunk = await invoke<string>("read_pty_output", { id: ptyId });
-      if (chunk) {
-        term?.write(chunk);
+      const chunk = await invoke<number[]>("plugin:pty|read", { pid: ptyId });
+      if (chunk && chunk.length) {
+        term?.write(decoder.decode(new Uint8Array(chunk)));
       }
       await new Promise((res) => setTimeout(res, 30));
     }
@@ -48,17 +75,17 @@ export default function TerminalPanel(props: { class?: string }): JSX.Element {
     term.open(container);
 
     const { cols, rows } = getTerminalGeometry(container);
-    invoke<string>("start_opencode_cli", { cols, rows })
+    invoke<string>("get_embedded_cli_path")
+      .then((path) => spawnPty(path, cols, rows))
       .then((id) => {
-        ptyId = id;
-      })
-      .catch((error) => {
-        console.error("Failed to start PTY session", error);
+        if (id !== undefined) {
+          ptyId = id;
+        }
       });
 
-    term.onData((data: string) => {
+    term.onData((data) => {
       if (ptyId) {
-        invoke("write_stdin", { id: ptyId, input: data }).catch(() => undefined);
+        invoke("plugin:pty|write", { pid: ptyId, data }).catch(() => undefined);
       }
     });
 
@@ -67,7 +94,7 @@ export default function TerminalPanel(props: { class?: string }): JSX.Element {
       const { cols: newCols, rows: newRows } = getTerminalGeometry(container);
       term.resize(newCols, newRows);
       if (ptyId) {
-        invoke("resize_pty", { id: ptyId, cols: newCols, rows: newRows }).catch(() => undefined);
+        invoke("plugin:pty|resize", { pid: ptyId, cols: newCols, rows: newRows }).catch(() => undefined);
       }
     });
     resizeObserver.observe(container);
@@ -81,7 +108,7 @@ export default function TerminalPanel(props: { class?: string }): JSX.Element {
       resizeObserver.disconnect();
     }
     if (ptyId) {
-      invoke("close_pty", { id: ptyId }).catch(() => undefined);
+      invoke("plugin:pty|kill", { pid: ptyId }).catch(() => undefined);
     }
     term?.dispose();
     term = undefined;

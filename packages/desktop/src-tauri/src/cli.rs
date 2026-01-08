@@ -17,6 +17,11 @@ pub fn get_sidecar_path() -> std::path::PathBuf {
         .join("opencode-cli")
 }
 
+#[tauri::command]
+pub fn get_embedded_cli_path() -> String {
+    get_sidecar_path().to_string_lossy().to_string()
+}
+
 fn is_cli_installed() -> bool {
     get_cli_install_path()
         .map(|path| path.exists())
