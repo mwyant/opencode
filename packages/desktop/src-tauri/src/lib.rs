@@ -1,5 +1,6 @@
 mod cli;
 mod window_customizer;
+mod pty_console;
 
 use cli::{get_sidecar_path, install_cli, sync_cli};
 use futures::FutureExt;
@@ -199,6 +200,10 @@ pub fn run() {
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        })
+        .plugin(tauri_plugin_pty::init())
+        .manage(pty_console::Pties::default())
+
             // Focus existing window when another instance is launched
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_focus();
@@ -219,7 +224,12 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             kill_sidecar,
             install_cli,
-            ensure_server_started
+            ensure_server_started,
+            pty_console::start_opencode_cli,
+            pty_console::write_stdin,
+            pty_console::resize_pty,
+            pty_console::close_pty,
+            pty_console::read_pty_output
         ])
         .setup(move |app| {
             let app = app.handle().clone();
