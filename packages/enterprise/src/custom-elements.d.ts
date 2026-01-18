@@ -1,1 +1,7 @@
-../../ui/src/custom-elements.d.ts
+declare global {
+  interface HTMLElementTagNameMap {
+    "opencode-root": HTMLElement
+  }
+}
+
+export {}
