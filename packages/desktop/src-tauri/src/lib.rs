@@ -2,6 +2,7 @@ mod cli;
 mod window_customizer;
 mod config_helpers;
 mod config_api;
+mod updater;
 
 use cli::{get_embedded_cli_path, install_cli, sync_cli};
 use config_helpers::backup_and_reset_config;
@@ -326,7 +327,8 @@ pub fn run() {
             backup_and_reset_config,
             // config read/write
             read_opencode_config,
-            write_opencode_config
+            write_opencode_config,
+            updater_check_and_install
         ])
         .setup(move |app| {
             let app = app.handle().clone();
