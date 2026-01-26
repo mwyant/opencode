@@ -65,12 +65,12 @@ export default function SettingsPanel() {
             <label>Tool Model (optional)</label>
             <input value={config()?.tool_model ?? ""} onInput={(e: any) => setConfig({ ...config(), tool_model: e.target.value })} />
           </div>
-          <div style={{ marginTop: '12px' }}>
+          <div style={{ "margin-top": '12px' }}>
             <button onClick={saveConfig}>Save</button>
             <button onClick={() => setOpen(false)}>Close</button>
           </div>
 
-          <div style={{ marginTop: '12px', borderTop: '1px solid #eee', paddingTop: '12px' }}>
+          <div style={{ "margin-top": '12px', "border-top": '1px solid #eee', "padding-top": '12px' }}>
             <h4>CLI Updater</h4>
             <div>{updateStatus()}</div>
             <button disabled={updating()} onClick={updateNow}>{updating() ? 'Updating...' : 'Update Now'}</button>
