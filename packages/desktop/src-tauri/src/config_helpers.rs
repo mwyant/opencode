@@ -2,6 +2,8 @@ use std::fs as stdfs;
 use std::path::PathBuf;
 use tauri::AppHandle;
 
+use std::io::Read;
+
 #[tauri::command]
 pub fn backup_and_reset_config() -> Result<String, String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());

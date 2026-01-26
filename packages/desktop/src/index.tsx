@@ -16,6 +16,7 @@ import { Logo } from "@opencode-ai/ui/logo"
 import { Suspense, createResource, ParentProps } from "solid-js"
 
 import { UPDATER_ENABLED } from "./updater"
+import SettingsPanel from "./components/SettingsPanel"
 import { createMenu } from "./menu"
 import pkg from "../package.json"
 import { Show } from "solid-js"
@@ -274,6 +275,10 @@ render(() => {
       )}
       <AppBaseProviders>
         <ServerGate>
+          <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 1000 }}>
+            {/* Settings gear placeholder - we will expand the existing gear later */}
+            <SettingsPanel />
+          </div>
           <AppInterface />
         </ServerGate>
       </AppBaseProviders>
