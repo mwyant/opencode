@@ -7,7 +7,7 @@ use cli::{get_embedded_cli_path, install_cli, sync_cli};
 use config_helpers::backup_and_reset_config;
 use config_api::{read_opencode_config, write_opencode_config};
 use std::fs::read_to_string;
-use tauri::api::path::home_dir;
+use dirs::home_dir;
 use futures::FutureExt;
 use std::{
     collections::VecDeque,
