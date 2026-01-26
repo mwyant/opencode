@@ -18,6 +18,9 @@ use tauri_plugin_shell::ShellExt;
 use tokio::net::TcpSocket;
 
 use crate::window_customizer::PinchZoomDisablePlugin;
+use std::fs as stdfs;
+use std::time::SystemTime;
+use chrono::Utc;
 
 #[derive(Clone)]
 struct ServerState {
@@ -108,6 +111,81 @@ fn get_user_shell() -> String {
 }
 
 fn spawn_sidecar(app: &AppHandle, port: u32) -> CommandChild {
+    // Ensure required user config directories exist and create defaults if necessary
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let cci_config_dir = std::path::PathBuf::from(&home).join("cci-config").join("opencode");
+    let cci_pref_dir = std::path::PathBuf::from(&home).join("cci-tech").join("open-persona-v3");
+    let agents_dir = cci_pref_dir.join("agents");
+    let backups_dir = cci_pref_dir.join("backups");
+
+    if let Err(e) = stdfs::create_dir_all(&cci_config_dir) {
+        eprintln!("Failed to create config dir {:?}: {}", cci_config_dir, e);
+    }
+    if let Err(e) = stdfs::create_dir_all(&agents_dir) {
+        eprintln!("Failed to create agents dir {:?}: {}", agents_dir, e);
+    }
+    if let Err(e) = stdfs::create_dir_all(&backups_dir) {
+        eprintln!("Failed to create backups dir {:?}: {}", backups_dir, e);
+    }
+
+    // Ensure opencode.jsonc exists in cci_config_dir
+    let opencode_cfg = cci_config_dir.join("opencode.jsonc");
+    if !opencode_cfg.exists() {
+        // create a minimal default config
+        let default = r#"{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "",
+  "small_model": "",
+  "provider": {}
+}"#;
+        if let Err(e) = stdfs::write(&opencode_cfg, default) {
+            eprintln!("Failed to write default config {:?}: {}", opencode_cfg, e);
+        }
+    }
+
+    let log_state = app.state::<LogState>();
+    let log_state_clone = log_state.inner().clone();
+
+    let state_dir = app
+        .path()
+        .resolve("", BaseDirectory::AppLocalData)
+        .expect("Failed to resolve app local data dir");
+
+    #[cfg(target_os = "windows")]
+    let (mut rx, child) = app
+        .shell()
+        .sidecar("opencode-cli")
+        .unwrap()
+        .env("OPENCODE_EXPERIMENTAL_ICON_DISCOVERY", "true")
+        .env("OPENCODE_CLIENT", "desktop")
+        .env("XDG_STATE_HOME", &state_dir)
+        // pass our override config path and config dir to the sidecar
+        .env("OPENCODE_CONFIG", &opencode_cfg)
+        .env("OPENCODE_CONFIG_DIR", &cci_pref_dir)
+        .args(["serve", &format!("--port={port}")])
+        .spawn()
+        .expect("Failed to spawn opencode");
+
+    #[cfg(not(target_os = "windows"))]
+    let (mut rx, child) = {
+        let sidecar = get_sidecar_path();
+        let shell = get_user_shell();
+        app.shell()
+            .command(&shell)
+            .env("OPENCODE_EXPERIMENTAL_ICON_DISCOVERY", "true")
+            .env("OPENCODE_CLIENT", "desktop")
+            .env("XDG_STATE_HOME", &state_dir)
+            // pass our override config path and config dir to the sidecar
+            .env("OPENCODE_CONFIG", &opencode_cfg)
+            .env("OPENCODE_CONFIG_DIR", &cci_pref_dir)
+            .args([
+                "-il",
+                "-c",
+                &format!("\"{}\" serve --port={}", sidecar.display(), port),
+            ])
+            .spawn()
+            .expect("Failed to spawn opencode")
+    };
     let log_state = app.state::<LogState>();
     let log_state_clone = log_state.inner().clone();
 
