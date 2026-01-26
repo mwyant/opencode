@@ -1,4 +1,4 @@
-use tauri::api::path::home_dir;
+use dirs::home_dir;
 use std::path::PathBuf;
 use std::fs as stdfs;
 

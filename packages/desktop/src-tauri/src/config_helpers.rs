@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use tauri::AppHandle;
 
 use std::io::Read;
-use tauri::api::path::home_dir;
+use dirs::home_dir;
 
 #[tauri::command]
 pub fn backup_and_reset_config() -> Result<String, String> {
