@@ -373,36 +373,75 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     let should_spawn_sidecar = !is_server_running(port).await;
 
-                    let (child, res) = if should_spawn_sidecar {
-                        let child = spawn_sidecar(&app, port);
+                    let (child_opt, res) = if should_spawn_sidecar {
+                        // Attempt to start the sidecar on multiple ports in case of port conflicts.
+                        let mut attempt: usize = 0;
+                        let mut final_res: Result<(), String> = Err("no attempt made".to_string());
+                        let mut chosen_child: Option<CommandChild> = None;
 
-                        let timestamp = Instant::now();
-                        let res = loop {
-                            if timestamp.elapsed() > Duration::from_secs(7) {
-                                break Err(format!(
-                                    "Failed to spawn OpenCode Server. Logs:\n{}",
-                                    get_logs(app.clone()).await.unwrap()
-                                ));
+                        while attempt < 6 {
+                            let try_port = get_sidecar_port();
+                            println!("Attempting to spawn sidecar on port {} (attempt {})", try_port, attempt + 1);
+
+                            let child = spawn_sidecar(&app, try_port);
+
+                            // wait briefly for the server to come up on this port
+                            let start = Instant::now();
+                            let mut ok = false;
+                            while start.elapsed() < Duration::from_secs(3) {
+                                if is_server_running(try_port).await {
+                                    ok = true;
+                                    break;
+                                }
+                                tokio::time::sleep(Duration::from_millis(100)).await;
                             }
 
-                            tokio::time::sleep(Duration::from_millis(10)).await;
-
-                            if is_server_running(port).await {
-                                // give the server a little bit more time to warm up
-                                tokio::time::sleep(Duration::from_millis(10)).await;
-
-                                break Ok(());
+                            if ok {
+                                final_res = Ok(());
+                                chosen_child = Some(child);
+                                println!("Sidecar started successfully on port {}", try_port);
+                                break;
                             }
-                        };
 
-                        println!("Server ready after {:?}", timestamp.elapsed());
+                            // Not up yet. Inspect logs to see if it failed due to port bind or similar.
+                            let logs = get_logs(app.clone()).await.unwrap_or_default();
+                            if logs.contains("Failed to start server on port") || logs.contains("address already in use") {
+                                // kill the child and try next port
+                                let _ = child.kill();
+                                println!("Port {} appears in use or binding failed; retrying", try_port);
+                                attempt += 1;
+                                tokio::time::sleep(Duration::from_millis(100)).await;
+                                continue;
+                            }
 
-                        (Some(child), res)
+                            // Give a bit more time (extended wait) before deciding to retry
+                            let extra_deadline = Instant::now() + Duration::from_secs(4);
+                            while Instant::now() < extra_deadline {
+                                if is_server_running(try_port).await {
+                                    ok = true;
+                                    break;
+                                }
+                                tokio::time::sleep(Duration::from_millis(100)).await;
+                            }
+
+                            if ok {
+                                final_res = Ok(());
+                                chosen_child = Some(child);
+                                break;
+                            }
+
+                            // Still not started; kill and retry
+                            let _ = child.kill();
+                            attempt += 1;
+                            tokio::time::sleep(Duration::from_millis(100)).await;
+                        }
+
+                        (chosen_child, final_res)
                     } else {
                         (None, Ok(()))
                     };
 
-                    app.state::<ServerState>().set_child(child);
+                    app.state::<ServerState>().set_child(child_opt);
 
                     if res.is_ok() {
                         let _ = window.eval("window.__OPENCODE__.serverReady = true;");
