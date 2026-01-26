@@ -1,7 +1,9 @@
 mod cli;
 mod window_customizer;
+mod config_helpers;
 
 use cli::{get_embedded_cli_path, install_cli, sync_cli};
+use config_helpers::backup_and_reset_config;
 use futures::FutureExt;
 use std::{
     collections::VecDeque,
@@ -300,7 +302,8 @@ pub fn run() {
             kill_sidecar,
             install_cli,
             ensure_server_started,
-            get_embedded_cli_path
+            get_embedded_cli_path,
+            backup_and_reset_config
         ])
         .setup(move |app| {
             let app = app.handle().clone();
