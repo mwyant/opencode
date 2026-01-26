@@ -94,17 +94,32 @@ async fn ensure_server_started(state: State<'_, ServerState>) -> Result<(), Stri
 }
 
 fn get_sidecar_port() -> u32 {
-    option_env!("OPENCODE_PORT")
-        .map(|s| s.to_string())
-        .or_else(|| std::env::var("OPENCODE_PORT").ok())
-        .and_then(|port_str| port_str.parse().ok())
-        .unwrap_or_else(|| {
-            TcpListener::bind("127.0.0.1:0")
-                .expect("Failed to bind to find free port")
-                .local_addr()
-                .expect("Failed to get local address")
-                .port()
-        }) as u32
+    // Prefer OPENCODE_PORT env if set
+    if let Some(port_str) = option_env!("OPENCODE_PORT") {
+        if let Ok(port) = port_str.parse::<u32>() {
+            return port;
+        }
+    }
+    if let Ok(port_str) = std::env::var("OPENCODE_PORT") {
+        if let Ok(port) = port_str.parse::<u32>() {
+            return port;
+        }
+    }
+
+    // Otherwise scan for an available port in a high unprivileged range (e.g. 10420..65535)
+    for port in 10420..=65535u32 {
+        let addr = format!("127.0.0.1:{}", port);
+        if std::net::TcpListener::bind(&addr).is_ok() {
+            return port;
+        }
+    }
+
+    // Fallback to ephemeral port
+    TcpListener::bind("127.0.0.1:0")
+        .expect("Failed to bind to find free port")
+        .local_addr()
+        .expect("Failed to get local address")
+        .port() as u32
 }
 
 #[cfg(not(target_os = "windows"))]
