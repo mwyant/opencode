@@ -10,6 +10,18 @@ fn get_cli_install_path() -> Option<std::path::PathBuf> {
 }
 
 pub fn get_sidecar_path() -> std::path::PathBuf {
+    // Prefer user-updated sidecar in ~/cci-tech/open-persona-v3/sidecars if present
+    if let Some(home) = std::env::var("HOME").ok() {
+        let user_sidecar = std::path::PathBuf::from(&home)
+            .join("cci-tech")
+            .join("open-persona-v3")
+            .join("sidecars")
+            .join(if cfg!(target_os = "windows") { "opencode.exe" } else { "opencode" });
+        if user_sidecar.exists() {
+            return user_sidecar;
+        }
+    }
+
     tauri::utils::platform::current_exe()
         .expect("Failed to get current exe")
         .parent()
