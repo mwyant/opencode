@@ -275,7 +275,7 @@ render(() => {
       )}
       <AppBaseProviders>
         <ServerGate>
-          <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 1000 }}>
+          <div style={{ position: 'absolute', top: '8px', right: '8px', "z-index": 1000 }}>
             {/* Settings gear placeholder - we will expand the existing gear later */}
             <SettingsPanel />
           </div>
