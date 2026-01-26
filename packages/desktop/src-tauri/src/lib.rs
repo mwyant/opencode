@@ -1,9 +1,13 @@
 mod cli;
 mod window_customizer;
 mod config_helpers;
+mod config_api;
 
 use cli::{get_embedded_cli_path, install_cli, sync_cli};
 use config_helpers::backup_and_reset_config;
+use config_api::{read_opencode_config, write_opencode_config};
+use std::fs::read_to_string;
+use tauri::api::path::home_dir;
 use futures::FutureExt;
 use std::{
     collections::VecDeque,
@@ -23,6 +27,7 @@ use crate::window_customizer::PinchZoomDisablePlugin;
 use std::fs as stdfs;
 use std::time::SystemTime;
 use chrono::Utc;
+use std::path::PathBuf;
 
 #[derive(Clone)]
 struct ServerState {
@@ -318,7 +323,10 @@ pub fn run() {
             install_cli,
             ensure_server_started,
             get_embedded_cli_path,
-            backup_and_reset_config
+            backup_and_reset_config,
+            // config read/write
+            read_opencode_config,
+            write_opencode_config
         ])
         .setup(move |app| {
             let app = app.handle().clone();

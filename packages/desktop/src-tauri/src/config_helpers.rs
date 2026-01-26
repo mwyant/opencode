@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use tauri::AppHandle;
 
 use std::io::Read;
+use tauri::api::path::home_dir;
 
 #[tauri::command]
 pub fn backup_and_reset_config() -> Result<String, String> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    let cci_config_dir = PathBuf::from(&home).join("cci-config").join("opencode");
-    let cci_pref_dir = PathBuf::from(&home).join("cci-tech").join("open-persona-v3");
+    let home = home_dir().unwrap_or_else(|| PathBuf::from("."));
+    let cci_config_dir = home.join("cci-config").join("opencode");
+    let cci_pref_dir = home.join("cci-tech").join("open-persona-v3");
     let backups_dir = cci_pref_dir.join("backups");
 
     if let Err(e) = stdfs::create_dir_all(&backups_dir) {
