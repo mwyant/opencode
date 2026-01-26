@@ -336,6 +336,11 @@ pub fn run() {
 
             // Get port and create window immediately for faster perceived startup
             let port = get_sidecar_port();
+            // If that port is already in use by another process (race), pick an ephemeral port
+            if is_server_running(port).await {
+                eprintln!("Port {} already in use, picking ephemeral port", port);
+            }
+
 
             let primary_monitor = app.primary_monitor().ok().flatten();
             let size = primary_monitor
