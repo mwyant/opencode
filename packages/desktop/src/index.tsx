@@ -285,6 +285,30 @@ render(() => {
   )
 }, root!)
 
+// Wire existing Settings gear to open our SettingsPanel
+if (typeof window !== 'undefined') {
+  // Run after a short delay to allow the DOM to render
+  setTimeout(() => {
+    try {
+      const selectors = [
+        'button[aria-label="Settings"]',
+        'button[icon="settings-gear"]',
+        '[data-component="icon-button"][icon="settings-gear"]',
+      ]
+      const el = document.querySelector(selectors.join(',')) as HTMLElement | null
+      if (el) {
+        el.addEventListener('click', (e) => {
+          // prevent default behavior if any and dispatch a global event
+          window.dispatchEvent(new Event('open-settings-panel'))
+        })
+      }
+    } catch (e) {
+      // ignore
+      console.error('Failed to wire settings gear:', e)
+    }
+  }, 300)
+}
+
 // Gate component that waits for the server to be ready
 function ServerGate(props: ParentProps) {
   const [status] = createResource(async () => {
