@@ -275,10 +275,9 @@ render(() => {
       )}
       <AppBaseProviders>
         <ServerGate>
-          <div style={{ position: 'absolute', top: '8px', right: '8px', "z-index": 1000 }}>
-            {/* Settings gear placeholder - we will expand the existing gear later */}
-            <SettingsPanel />
-          </div>
+          {/* Mount SettingsPanel (hidden until opened). We wire the existing UI gear button to dispatch an event that opens this panel. */}
+          <SettingsPanel />
+
           <AppInterface />
         </ServerGate>
       </AppBaseProviders>

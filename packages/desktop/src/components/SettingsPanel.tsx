@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js"
+import { createSignal, Show, onMount } from "solid-js"
 import { invoke } from "@tauri-apps/api/core"
 
 export default function SettingsPanel() {
@@ -24,11 +24,18 @@ export default function SettingsPanel() {
     }
   }
 
+  onMount(() => {
+    // Listen for the global event to open settings (dispatched by the existing gear button)
+    const handler = () => {
+      if (!config()) loadConfig()
+      setOpen(true)
+    }
+    window.addEventListener("open-settings-panel", handler as EventListener)
+    return () => window.removeEventListener("open-settings-panel", handler as EventListener)
+  })
+
   return (
     <div>
-      <button onClick={() => { setOpen(!open); if (!config()) loadConfig() }} title="Settings">
-        ⚙️
-      </button>
       <Show when={open()}>
         <div class="settings-panel">
           <h3>Settings</h3>
